@@ -2,9 +2,9 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
-import quandl
 import numpy as np
 import pandas as pd
+import pandas_datareader as pdr
 import logging
 
 import tempfile
@@ -26,53 +26,57 @@ def _prices2returns(prices):
     return R
 
 
-class QuandlEnvSrc(object):
+class YahooEnvSrc(object):
     '''
-    Quandl-based implementation of a TradingEnv's data source.
+    Yahoo-based implementation of a TradingEnv's data source.
 
-    Pulls data from Quandl, preps for use by TradingEnv and then
+    Pulls data from Yahoo data source, preps for use by TradingEnv and then
     acts as data provider for each new episode.
     '''
 
-    MinPercentileDays = 100
-    QuandlAuthToken = ""  # not necessary, but can be used if desired
-    Name = "GOOG/NYSE_SPY"  # "GOOG/NYSE_IBM"
+    MIN_PERCENTILE_DAYS = 100
+    STOCK_NAME_LIST = ['000333.SZ', ]
 
-    def __init__(self, days=252, name=Name, auth=QuandlAuthToken, scale=True):
-        self.name = name
-        self.auth = auth
-        self.days = days+1
-        log.info('getting data for %s from quandl...', QuandlEnvSrc.Name)
-        df = quandl.get(self.name) if self.auth == '' else quandl.get(self.name, authtoken=self.auth)
-        log.info('got data for %s from quandl...', QuandlEnvSrc.Name)
+    def __init__(self, days=252, name_list=STOCK_NAME_LIST, scale=True):
+        self.name_list = name_list
+        self.days = days + 1
+        self.data = dict()
+        for stock_name in self.name_list:
+            log.info('getting data for %s from yahoo...', stock_name)
+            df = pdr.get_data_yahoo(stock_name)
+            log.info('got data for %s from yahoo...', stock_name)
 
-        df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
-        # we calculate returns and percentiles, then kill nans
-        df = df[['Close', 'Volume']]
-        df.Volume.replace(0, 1, inplace=True)  # days shouldn't have zero volume..
-        df['Return'] = (df.Close-df.Close.shift())/df.Close.shift()
-        pctrank = lambda x: pd.Series(x).rank(pct=True).iloc[-1]
-        df['ClosePctl'] = df.Close.expanding(self.MinPercentileDays).apply(pctrank)
-        df['VolumePctl'] = df.Volume.expanding(self.MinPercentileDays).apply(pctrank)
-        df.dropna(axis=0, inplace=True)
-        R = df.Return
-        if scale:
-            mean_values = df.mean(axis=0)
-            std_values = df.std(axis=0)
-            df = (df - np.array(mean_values)) / np.array(std_values)
-        df['Return'] = R  # we don't want our returns scaled
-        self.min_values = df.min(axis=0)
-        self.max_values = df.max(axis=0)
-        self.data = df
-        self.step = 0
+            df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
+            # we calculate returns and percentiles, then kill nans
+            df = df[['Close', 'Volume']]
+            df.Volume.replace(0, 1, inplace=True)  # days shouldn't have zero volume..
+            df['Return'] = (df.Close-df.Close.shift())/df.Close.shift()
+            pctrank = lambda x: pd.Series(x).rank(pct=True).iloc[-1]
+            df['ClosePctl'] = df.Close.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
+            df['VolumePctl'] = df.Volume.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
+            df.dropna(axis=0, inplace=True)
+            R = df.Return
+            if scale:
+                mean_values = df.mean(axis=0)
+                std_values = df.std(axis=0)
+                df = (df - np.array(mean_values)) / np.array(std_values)
+            df['Return'] = R  # we don't want our returns scaled
+            self.data[stock_name] = {
+                'data': df,
+                'min_values': df.min(axis=0),
+                'max_values': df.max(axis=0),
+            }
+        self.reset()
 
     def reset(self):
+        # select stock randomly
+        self.stock_name = self.data.keys()[np.random.randint(low=0, high=len(self.data.keys()))]
         # we want contiguous data
-        self.idx = np.random.randint(low=0, high=len(self.data.index)-self.days)
+        self.idx = np.random.randint(low=0, high=len(self.data[self.stock_name]['data'].index)-self.days)
         self.step = 0
 
     def _step(self):
-        obs = self.data.iloc[self.idx].as_matrix()
+        obs = self.data[self.stock_name]['data'].iloc[self.idx].as_matrix()
         self.idx += 1
         self.step += 1
         done = self.step >= self.days
@@ -165,7 +169,7 @@ class TradingEnv(gym.Env):
     """This gym implements a simple trading environment for reinforcement learning.
 
     The gym provides daily observations based on real market data pulled
-    from Quandl on, by default, the SPY etf. An episode is defined as 252
+    from Yahoo on, by default, the SPY etf. An episode is defined as 252
     contiguous days sampled from the overall dataset. Each day is one
     'step' within the gym and for each step, the algo has a choice:
 
@@ -191,7 +195,7 @@ class TradingEnv(gym.Env):
 
     def __init__(self):
         self.days = 252
-        self.src = QuandlEnvSrc(days=self.days)
+        self.src = YahooEnvSrc(days=self.days)
         self.sim = TradingSim(steps=self.days, trading_cost_bps=1e-3, time_cost_bps=1e-4)
         self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(self.src.min_values, self.src.max_values)
@@ -207,7 +211,7 @@ class TradingEnv(gym.Env):
     def _step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         observation, done = self.src._step()
-        # Close        Volume         Return    ClosePctl    VolumePctl
+        # Close Volume Return ClosePctl VolumePctl
         yret = observation[2]
 
         reward, info = self.sim._step(action, yret)
