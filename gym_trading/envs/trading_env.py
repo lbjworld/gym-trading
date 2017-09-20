@@ -35,48 +35,43 @@ class YahooEnvSrc(object):
     '''
 
     MIN_PERCENTILE_DAYS = 100
-    STOCK_NAME_LIST = ['000333.SZ', ]
+    STOCK_NAME = '000333.SZ'
 
-    def __init__(self, days=252, name_list=STOCK_NAME_LIST, scale=True):
-        self.name_list = name_list
+    def __init__(self, days=252, name=STOCK_NAME, scale=True):
+        self.name = name
         self.days = days + 1
         self.data = dict()
-        for stock_name in self.name_list:
-            log.info('getting data for %s from yahoo...', stock_name)
-            df = pdr.get_data_yahoo(stock_name)
-            log.info('got data for %s from yahoo...', stock_name)
+        log.info('getting data for %s from yahoo...', self.name)
+        df = pdr.get_data_yahoo(self.name)
+        log.info('got data for %s from yahoo...', self.name)
 
-            df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
-            # we calculate returns and percentiles, then kill nans
-            df = df[['Close', 'Volume']]
-            df.Volume.replace(0, 1, inplace=True)  # days shouldn't have zero volume..
-            df['Return'] = (df.Close-df.Close.shift())/df.Close.shift()
-            pctrank = lambda x: pd.Series(x).rank(pct=True).iloc[-1]
-            df['ClosePctl'] = df.Close.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
-            df['VolumePctl'] = df.Volume.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
-            df.dropna(axis=0, inplace=True)
-            R = df.Return
-            if scale:
-                mean_values = df.mean(axis=0)
-                std_values = df.std(axis=0)
-                df = (df - np.array(mean_values)) / np.array(std_values)
-            df['Return'] = R  # we don't want our returns scaled
-            self.data[stock_name] = {
-                'data': df,
-                'min_values': df.min(axis=0),
-                'max_values': df.max(axis=0),
-            }
+        df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
+        # we calculate returns and percentiles, then kill nans
+        df = df[['Close', 'Volume']]
+        df.Volume.replace(0, 1, inplace=True)  # days shouldn't have zero volume..
+        df['Return'] = (df.Close-df.Close.shift())/df.Close.shift()
+        pctrank = lambda x: pd.Series(x).rank(pct=True).iloc[-1]
+        df['ClosePctl'] = df.Close.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
+        df['VolumePctl'] = df.Volume.expanding(self.MIN_PERCENTILE_DAYS).apply(pctrank)
+        df.dropna(axis=0, inplace=True)
+        R = df.Return
+        if scale:
+            mean_values = df.mean(axis=0)
+            std_values = df.std(axis=0)
+            df = (df - np.array(mean_values)) / np.array(std_values)
+        df['Return'] = R  # we don't want our returns scaled
+        self.data = df
+        self.min_values = df.min(axis=0)
+        self.max_values = df.max(axis=0)
         self.reset()
 
     def reset(self):
-        # select stock randomly
-        self.stock_name = self.data.keys()[np.random.randint(low=0, high=len(self.data.keys()))]
         # we want contiguous data
-        self.idx = np.random.randint(low=0, high=len(self.data[self.stock_name]['data'].index)-self.days)
+        self.idx = np.random.randint(low=0, high=len(self.data.index)-self.days)
         self.step = 0
 
     def _step(self):
-        obs = self.data[self.stock_name]['data'].iloc[self.idx].as_matrix()
+        obs = self.data.iloc[self.idx].as_matrix()
         self.idx += 1
         self.step += 1
         done = self.step >= self.days
@@ -117,9 +112,11 @@ class TradingSim(object):
         """ Given an action and return for prior period, calculates costs, navs,
         etc and returns the reward and a summary of the day's activity. """
 
-        bod_posn = 0.0 if self.step == 0 else self.posns[self.step-1]
-        bod_nav = 1.0 if self.step == 0 else self.navs[self.step-1]
-        mkt_nav = 1.0 if self.step == 0 else self.mkt_nav[self.step-1]
+        if self.step == 0:
+            bod_posn, bod_nav, mkt_nav = 0.0, 1.0, 1.0
+        else:
+            bod_posn, bod_nav, mkt_nav = \
+                self.posns[self.step-1], self.navs[self.step-1], self.mkt_nav[self.step-1]
 
         self.mkt_retrns[self.step] = retrn
         self.actions[self.step] = action
