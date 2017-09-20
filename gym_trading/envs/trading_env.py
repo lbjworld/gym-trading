@@ -1,13 +1,14 @@
+# coding: utf-8
 import gym
 from gym import spaces
 from gym.utils import seeding
 
 import numpy as np
 import pandas as pd
-import pandas_datareader as pdr
 import logging
-
 import tempfile
+
+from data_loader import data_loader
 
 log = logging.getLogger(__name__)
 log.info('%s logger started.', __name__)
@@ -42,7 +43,7 @@ class YahooEnvSrc(object):
         self.days = days + 1
         self.data = dict()
         log.info('getting data for %s from yahoo...', self.name)
-        df = pdr.get_data_yahoo(self.name)
+        df = data_loader(self.name)
         log.info('got data for %s from yahoo...', self.name)
 
         df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
