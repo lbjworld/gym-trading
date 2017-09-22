@@ -1,2 +1,2 @@
 from gym_trading.envs.trading_env import TradingEnv
-# from gym_trading.envs.hard_trading_env import HardTradingEnv
+from gym_trading.envs.multi_stock_trading_env import MultiStockTradingEnv

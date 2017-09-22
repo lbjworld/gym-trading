@@ -211,11 +211,9 @@ class TradingEnv(gym.Env):
         observation, done = self.src._step()
         # Close Volume Return ClosePctl VolumePctl
         yret = observation[2]
-
         reward, info = self.sim._step(action, yret)
-
-        # info = { 'pnl': daypnl, 'nav':self.nav, 'costs':costs }
-
+        if info['nav'] >= 2.0 or info['nav'] <= 0.0:
+            done = True
         return observation, reward, done, info
 
     def _reset(self):
@@ -229,7 +227,7 @@ class TradingEnv(gym.Env):
 
     # some convenience functions:
 
-    def run_strat(self,    strategy, return_df=True):
+    def run_strat(self, strategy, return_df=True):
         """run provided strategy, returns dataframe with all steps"""
         observation = self.reset()
         done = False
@@ -241,10 +239,10 @@ class TradingEnv(gym.Env):
 
     def run_strats(self, strategy, episodes=1, write_log=True, return_df=True):
         """ run provided strategy the specified # of times, possibly
-                writing a log and possibly returning a dataframe summarizing activity.
+          writing a log and possibly returning a dataframe summarizing activity.
 
-                Note that writing the log is expensive and returning the df is moreso.
-                For training purposes, you might not want to set both.
+          Note that writing the log is expensive and returning the df is moreso.
+          For training purposes, you might not want to set both.
         """
         logfile = None
         if write_log:
