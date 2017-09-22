@@ -3,12 +3,12 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
+import logging
 import numpy as np
 import pandas as pd
-import logging
-import tempfile
 
 from data_loader import data_loader
+from mixin import RunMixin
 
 log = logging.getLogger(__name__)
 log.info('%s logger started.', __name__)
@@ -163,7 +163,7 @@ class TradingSim(object):
         return df
 
 
-class TradingEnv(gym.Env):
+class TradingEnv(gym.Env, RunMixin):
     """This gym implements a simple trading environment for reinforcement learning.
 
     The gym provides daily observations based on real market data pulled
@@ -225,38 +225,5 @@ class TradingEnv(gym.Env):
         # TODO
         pass
 
-    # some convenience functions:
-
-    def run_strat(self, strategy, return_df=True):
-        """run provided strategy, returns dataframe with all steps"""
-        observation = self.reset()
-        done = False
-        while not done:
-            action = strategy(observation, self)  # call strategy
-            observation, reward, done, info = self.step(action)
-
-        return self.sim.to_df() if return_df else None
-
-    def run_strats(self, strategy, episodes=1, write_log=True, return_df=True):
-        """ run provided strategy the specified # of times, possibly
-          writing a log and possibly returning a dataframe summarizing activity.
-
-          Note that writing the log is expensive and returning the df is moreso.
-          For training purposes, you might not want to set both.
-        """
-        logfile = None
-        if write_log:
-            logfile = tempfile.NamedTemporaryFile(delete=False)
-            log.info('writing log to %s', logfile.name)
-            need_df = write_log or return_df
-
-        alldf = None
-
-        for i in range(episodes):
-            df = self.run_strat(strategy, return_df=need_df)
-            if write_log:
-                df.to_csv(logfile, mode='a')
-                if return_df:
-                    alldf = df if alldf is None else pd.concat([alldf, df], axis=0)
-
-        return alldf
+    def action_options(self):
+        return range(3)

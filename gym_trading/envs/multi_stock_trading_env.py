@@ -8,9 +8,9 @@ from gym.utils import seeding
 from gym.spaces import prng
 
 from data_loader import data_loader
+from mixin import RunMixin
 
 log = logging.getLogger(__name__)
-log.info('%s logger started.', __name__)
 
 ACTION_SIZE = 3
 
@@ -27,7 +27,7 @@ class YahooMarketEnvSrc(object):
         '000333.SZ', '300356.SZ', '603789.SS', '603688.SS', '000034.SZ', '603766.SS'
     ]
 
-    def __init__(self, days=252, names=STOCK_NAMES, scale=True):
+    def __init__(self, days=252, names=STOCK_NAMES, scale=False):
         assert(isinstance(names, list))
         self.names = names
         self.capacity = len(self.names)
@@ -35,7 +35,7 @@ class YahooMarketEnvSrc(object):
         stock_data = dict()
         for name in self.names:
             log.info('getting data for %s from yahoo...', name)
-            df = data_loader(self.name)
+            df = data_loader(name)
             log.info('got data for %s from yahoo...', name)
 
             df = df[~np.isnan(df.Volume)][['Close', 'Volume']]
@@ -66,6 +66,7 @@ class YahooMarketEnvSrc(object):
         return self.names[s_idx]
 
     def tradable_stocks(self):
+        # use data from last idx
         obs = self.data.major_xs(self.data.major_axis[self.idx])
         return [idx for idx, name in enumerate(self.names) if not np.isnan(obs[name]['Close'])]
 
@@ -157,7 +158,7 @@ class MultiStockTradingSim(object):
         ]
         # pdb.set_trace()
         df = pd.DataFrame({
-            'action': self.actions,  # today's action (from agent)
+            'action': [unicode(a) for a in self.actions],  # today's action (from agent)
             'bod_nav': self.navs,  # BOD Net Asset Value (NAV)
             'mkt_nav': self.mkt_nav,
             'mkt_return': self.mkt_retrns,
@@ -169,7 +170,7 @@ class MultiStockTradingSim(object):
         return df
 
 
-class MultiStockTradingEnv(gym.Env):
+class MultiStockTradingEnv(gym.Env, RunMixin):
     """
         This gym implements a multi-stock trading environment for reinforcement learning.
 
@@ -186,11 +187,11 @@ class MultiStockTradingEnv(gym.Env):
         self.src = YahooMarketEnvSrc()
         self.sim = MultiStockTradingSim(steps=self.days)
         # stock (capacity) * actions (3)
-        self.action_sapce = spaces.MultiDiscrete([
+        self.action_space = spaces.MultiDiscrete([
             [0, self.src.capacity - 1], [0, ACTION_SIZE-1]
         ])
         # {Close, Volume, Return} for each stock
-        self.observation_space = spaces.Dict([
+        self.observation_space = spaces.Tuple([
             spaces.Box(
                 low=np.array(self.src.attributes_min),
                 high=np.array(self.src.attributes_max)
@@ -225,20 +226,26 @@ class MultiStockTradingEnv(gym.Env):
         # TODO
         pass
 
-    def action_pool(self):
+    @property
+    def action_options(self):
         actions = []
+        last_step = self.sim.step - 1
         stock_idx = self.sim.current_stock_idx
-        if self.sim.posns[self.sim.step] == 1.0:
+        if last_step < 0:
+            for s in self.src.tradable_stocks():
+                actions.extend([[s, 0], [s, 1], [s, 2]])
+            return actions
+
+        if self.sim.posns[last_step] == 1.0:
             assert(stock_idx is not None)
             # we are now in long position, only can stick in short(0) or flat(1)
             actions.extend([[stock_idx, 0], [stock_idx, 1]])
-        elif self.sim.posns[self.sim.step] == -1.0:
+        elif self.sim.posns[last_step] == -1.0:
             assert(stock_idx is not None)
             # we are now in short position, only can stick in long(2) or flat(1)
             actions.extend([[stock_idx, 1], [stock_idx, 2]])
         else:
             # we don't have any open position
-            assert(stock_idx is None)
             for s in self.src.tradable_stocks():
                 actions.extend([[s, 0], [s, 1], [s, 2]])
         return actions
