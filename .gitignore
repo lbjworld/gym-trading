@@ -90,3 +90,6 @@ ENV/
 
 # vim tmp file
 *.swp
+
+# tmp file dir
+gym_trading/envs/tmp_data/
