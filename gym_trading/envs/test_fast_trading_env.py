@@ -31,13 +31,16 @@ class FastTradingEnvTestCase(unittest.TestCase):
         self.assertTrue(df.shape)
 
     def test_performance(self):
-        def run_one_episode():
-            self.env.reset()
-            done = False
-            while not done:
-                action = self.env.action_space.sample()  # random
-                _, _, done, _ = self.env.step(action)
-        print timeit.timeit('run_one_episode()', number=1000)
+        setup = """import fast_trading_env; env = fast_trading_env.FastTradingEnv(name='000333.SZ', days=200)"""
+        code = """env.reset()
+done = False
+while not done:
+    action = env.action_space.sample()
+    obs, reward, done, info = env.step(action)
+"""
+        count = 100
+        total = timeit.timeit(code, setup=setup, number=count)
+        print 'avg: {t} seconds'.format(t=total/count)
 
 
 if __name__ == '__main__':
