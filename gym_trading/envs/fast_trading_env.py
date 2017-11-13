@@ -55,7 +55,7 @@ class YahooEnvSrc(object):
         done = self.step >= self.days
         return obs, done
 
-    def inspect(self):
+    def to_df(self):
         return self.data[self.idx:self.idx+self.step+1]
 
 
@@ -96,7 +96,7 @@ class TradingSim(object):
         self.step += 1
         return reward, info
 
-    def inspect(self):
+    def to_df(self):
         """returns internal state in new dataframe """
         cols = [
             'action', 'nav',
@@ -163,8 +163,8 @@ class FastTradingEnv(gym.Env, RunMixin):
 
     def _render(self, mode='human', close=False):
         pass
-        # src_df = self.src.inspect()  # open, high, low, close, volume
-        # sim_df = self.sim.inspect()  # action, nav
+        # src_df = self.src.to_df()  # open, high, low, close, volume
+        # sim_df = self.sim.to_df()  # action, nav
         # src_df.close.plot.line()
         # sim_df.plot.bar()
 

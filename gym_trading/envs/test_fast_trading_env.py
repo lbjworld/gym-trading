@@ -1,39 +1,44 @@
 # import gym
-import pandas as pd
+import unittest
+import timeit
+
 import fast_trading_env
 
-pd.set_option('display.width', 500)
 
-env = fast_trading_env.FastTradingEnv(name='000333.SZ', days=200)
-# env = gym.make('trading-v0')
+class FastTradingEnvTestCase(unittest.TestCase):
+    def setUp(self):
+        self.env = fast_trading_env.FastTradingEnv(name='000333.SZ', days=200)
 
-episodes = 100
+    def test_normal_run(self):
+        self.assertTrue(self.env)
+        episodes = 10
+        for _ in range(episodes):
+            self.env.reset()
+            done = False
+            count = 0
+            while not done:
+                action = self.env.action_space.sample()  # random
+                observation, reward, done, info = self.env.step(action)
+                self.assertTrue(reward >= 0.0)
+                count += 1
+        self.assertTrue(count)
 
-obs = []
+    def test_run_strat(self):
+        self.assertTrue(self.env)
+        episodes = 10
+        buyhold = lambda x, y: 1
+        df = self.env.run_strats(buyhold, episodes)
+        self.assertTrue(df.shape)
 
-for _ in range(episodes):
-    observation = env.reset()
-    done = False
-    count = 0
-    acc_reward = 0.0
-    while not done:
-        action = env.action_space.sample()  # random
-        observation, reward, done, info = env.step(action)
-        print '--------', count
-        print 'obs', observation
-        print 'action:{a} reward:{r} info:{i}'.format(a=action, r=reward, i=info)
-        count += 1
-        acc_reward += reward
-        if done:
-            print acc_reward, count
-            raw_input()
+    def test_performance(self):
+        def run_one_episode():
+            self.env.reset()
+            done = False
+            while not done:
+                action = self.env.action_space.sample()  # random
+                _, _, done, _ = self.env.step(action)
+        print timeit.timeit('run_one_episode()', number=1000)
 
-df = env.sim.inspect()
 
-df.head()
-df.tail()
-
-buyhold = lambda x, y: 2
-df = env.run_strat(buyhold)
-
-df10 = env.run_strats(buyhold, episodes)
+if __name__ == '__main__':
+    unittest.main()
