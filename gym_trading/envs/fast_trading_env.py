@@ -58,6 +58,20 @@ class YahooEnvSrc(object):
     def to_df(self):
         return self.data[self.idx:self.idx+self.step+1]
 
+    def snapshot(self):
+        return {
+            'step': self.step,
+            'idx': self.idx,
+            'name': self.name,
+            'days': self.days,
+        }
+
+    def recover(self, snapshot):
+        assert('step' in snapshot and 'idx' in snapshot and 'name' in snapshot)
+        assert(snapshot['name'] == self.name)
+        self.step = snapshot['step']
+        self.idx = snapshot['idx']
+
 
 class TradingSim(object):
     """ Implements core trading simulator for single-instrument univ """
@@ -106,6 +120,19 @@ class TradingSim(object):
             'nav': self.navs,  # BOD Net Asset Value (NAV)
         }, columns=cols)[:self.step+1]
         return df
+
+    def snapshot(self):
+        return {
+            'step': self.step,
+            'actions': np.array(self.actions, copy=True),
+            'navs': np.array(self.navs, copy=True),
+        }
+
+    def recover(self, snapshot, copy=True):
+        assert('step' in snapshot and 'actions' in snapshot and 'navs' in snapshot)
+        self.step = snapshot['step']
+        self.actions = np.array(snapshot['actions'], copy=True) if copy else snapshot['actions']
+        self.navs = np.array(snapshot['navs'], copy=True) if copy else snapshot['navs']
 
 
 class FastTradingEnv(gym.Env, RunMixin):
@@ -170,3 +197,14 @@ class FastTradingEnv(gym.Env, RunMixin):
 
     def action_options(self):
         return range(2)
+
+    def snapshot(self):
+        return {
+            'src': self.src.snapshot(),
+            'sim': self.sim.snapshot(),
+        }
+
+    def recover(self, snapshot):
+        assert('src' in snapshot and 'sim' in snapshot)
+        self.src.recover(snapshot['src'])
+        self.sim.recover(snapshot['sim'])
