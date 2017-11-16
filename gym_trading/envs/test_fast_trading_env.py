@@ -53,7 +53,7 @@ while not done:
         sum_reward = 0.0
         snapshot_sum_reward = 0.0
         while not done:
-            action = 1 # fix to long
+            action = 1  # fix to long
             observation, reward, done, info = self.env.step(action)
             count += 1
             sum_reward += reward
@@ -70,12 +70,25 @@ while not done:
         count = 0
         recover_sum_reward = snapshot_sum_reward
         while not done:
-            action = 1 # fix to long
+            action = 1  # fix to long
             observation, reward, done, info = self.env.step(action)
             count += 1
             recover_sum_reward += reward
         self.assertEqual(count + 1, self.days / 2)
         self.assertEqual(sum_reward, recover_sum_reward)
+
+    def test_buy_hold_to_end(self):
+        self.env.reset()
+        done = False
+        count = 0
+        while not done:
+            action = 1  # fix to long
+            observation, reward, done, info = self.env.step(action)
+            count += 1
+            if not done:
+                self.assertAlmostEqual(reward, 0.0)
+            else:
+                self.assertGreater(reward, 0.0)
 
 
 if __name__ == '__main__':

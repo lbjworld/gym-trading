@@ -90,7 +90,7 @@ class TradingSim(object):
         self.actions.fill(0)
         self.navs.fill(1)
 
-    def _step(self, action, nav_pct_change):
+    def _step(self, action, nav_pct_change, done=False):
         reward = 0.0
         # record action
         self.actions[self.step] = action
@@ -102,6 +102,9 @@ class TradingSim(object):
             # trading fee for changing trade position
             if abs(self.actions[self.step-1] - action) > 0:
                 reward = self.navs[self.step] * self.trading_cost_pct_change
+        if done:
+            # episode finished, force sold
+            reward = self.navs[self.step] * self.trading_cost_pct_change
         info = {
             'reward': reward,
             'nav': self.navs[self.step],
@@ -178,7 +181,7 @@ class FastTradingEnv(gym.Env, RunMixin):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         obs, done = self.src._step()
         close_pct_change = obs['pct_change'][3]
-        reward, info = self.sim._step(action, close_pct_change)
+        reward, info = self.sim._step(action, close_pct_change, done=done)
         if info['nav'] <= 0.0:
             done = True
         return obs, reward, done, info
