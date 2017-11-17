@@ -45,12 +45,15 @@ class YahooEnvSrc(object):
         self.step = 0
 
     def _step(self):
+        current_idx = self.idx + self.step
+        empty_data = pd.DataFrame([[0.0]*len(self.data.columns)]*(self.days-self.step))
+        history = self.data[:current_idx, :].append(empty_data)
         obs = {
-            'idx': self.idx,
-            'ticker': self.data.iloc[self.idx].as_matrix(),
-            'pct_change': self.pct_change.iloc[self.idx].as_matrix(),
+            'idx': current_idx,
+            'ticker': self.data.iloc[current_idx].as_matrix(),
+            'pct_change': self.pct_change.iloc[current_idx].as_matrix(),
+            'history': history,
         }
-        self.idx += 1
         self.step += 1
         done = self.step >= self.days
         return obs, done
