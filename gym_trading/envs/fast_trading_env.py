@@ -46,11 +46,13 @@ class YahooEnvSrc(object):
 
     def _step(self):
         current_idx = self.idx + self.step
-        empty_data = pd.DataFrame([[0.0]*len(self.data.columns)]*(self.days-self.step))
-        history = self.data[:current_idx, :].append(empty_data)
+        empty_data = np.zeros((self.days-self.step, len(self.data.columns)))
+        if current_idx:
+            visible_data = self.data[self.idx:current_idx].as_matrix()
+            history = np.concatenate((visible_data, empty_data), axis=0)
+        else:
+            history = empty_data
         obs = {
-            'idx': current_idx,
-            'ticker': self.data.iloc[current_idx].as_matrix(),
             'pct_change': self.pct_change.iloc[current_idx].as_matrix(),
             'history': history,
         }
@@ -187,7 +189,7 @@ class FastTradingEnv(gym.Env, RunMixin):
         reward, info = self.sim._step(action, close_pct_change, done=done)
         if info['nav'] <= 0.0:
             done = True
-        return obs, reward, done, info
+        return obs['history'], reward, done, info
 
     def _reset(self):
         self.src.reset()
