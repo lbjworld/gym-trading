@@ -111,6 +111,7 @@ class TradingSim(object):
             # episode finished, force sold
             reward = self.navs[self.step] * self.trading_cost_pct_change
         info = {
+            'step': self.step,
             'reward': reward,
             'nav': self.navs[self.step],
         }
