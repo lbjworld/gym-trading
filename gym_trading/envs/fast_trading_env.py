@@ -46,18 +46,24 @@ class YahooEnvSrc(object):
 
     def _step(self):
         current_idx = self.idx + self.step
-        empty_data = np.zeros((self.days-self.step, len(self.data.columns)))
         if current_idx:
             visible_data = self.data[self.idx:current_idx].as_matrix()
-            history = np.concatenate((visible_data, empty_data), axis=0)
+            if self.days <= self.step:
+                # last one
+                history = visible_data
+            else:
+                empty_data = np.zeros((self.days-self.step, len(self.data.columns)))
+                history = np.concatenate((visible_data, empty_data), axis=0)
         else:
-            history = empty_data
+            # first one
+            history = np.zeros((self.days-self.step, len(self.data.columns)))
+        assert(history.shape == (self.days, len(self.data.columns)))
         obs = {
             'pct_change': self.pct_change.iloc[current_idx].as_matrix(),
             'history': history,
         }
         self.step += 1
-        done = self.step >= self.days
+        done = self.step > self.days
         return obs, done
 
     def to_df(self):

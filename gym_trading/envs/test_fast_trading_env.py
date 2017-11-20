@@ -22,7 +22,7 @@ class FastTradingEnvTestCase(unittest.TestCase):
                 observation, reward, done, info = self.env.step(action)
                 self.assertTrue(reward >= 0.0)
                 count += 1
-        self.assertEqual(count + 1, self.days)
+        self.assertEqual(count, self.days)
 
     def test_run_strat(self):
         self.assertTrue(self.env)
@@ -62,7 +62,7 @@ while not done:
                 snapshot = self.env.snapshot()
                 snapshot_sum_reward = sum_reward
         self.assertTrue(snapshot)
-        self.assertEqual(count + 1, self.days)
+        self.assertEqual(count, self.days)
 
         # recover to snapshot
         self.env.recover(snapshot)
@@ -74,7 +74,7 @@ while not done:
             observation, reward, done, info = self.env.step(action)
             count += 1
             recover_sum_reward += reward
-        self.assertEqual(count + 1, self.days / 2)
+        self.assertEqual(count, self.days / 2)
         self.assertEqual(sum_reward, recover_sum_reward)
 
     def test_buy_hold_to_end(self):
