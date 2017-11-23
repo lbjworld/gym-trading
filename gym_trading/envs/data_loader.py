@@ -3,7 +3,7 @@ import os
 import logging
 from datetime import datetime, timedelta, date
 import pandas as pd
-# import pandas_datareader as pdr
+import pandas_datareader.data as web
 import tushare as ts
 
 logger = logging.getLogger(__name__)
@@ -58,8 +58,8 @@ def data_loader(name, cache_days=10, compression='gzip'):
         if os.path.exists(cache_path):
             df = pd.read_pickle(cache_path, compression=compression)
     if df is None:
-        # df = pdr.get_data_yahoo(name)
-        df = get_data_tushare(name)
+        df = web.DataReader(name, 'yahoo', start=datetime(2012,8,29), end=datetime.now())
+        # df = get_data_tushare(name)
         # cache data
         df.to_pickle(cached_filename(name, now_date), compression)
     return df
