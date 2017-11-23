@@ -28,6 +28,8 @@ class YahooEnvSrc(object):
         self.days = days
 
         data_df = data_loader(self.name)
+        if data_df.empty:
+            raise Exception('load data error')
         logger.debug('[{name}] data loaded'.format(name=self.name))
 
         close_column = 'Adj Close' if use_adjust_close else 'Close'
