@@ -61,5 +61,5 @@ def data_loader(name, cache_days=10, compression='gzip'):
         df = web.DataReader(name, 'yahoo', start=datetime(2012,8,29), end=datetime.now())
         # df = get_data_tushare(name)
         # cache data
-        df.to_pickle(cached_filename(name, now_date), compression)
+        df.to_pickle(os.path.join(cache_dir, cached_filename(name, now_date)), compression)
     return df
