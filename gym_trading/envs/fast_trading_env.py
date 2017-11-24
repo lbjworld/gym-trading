@@ -43,7 +43,10 @@ class YahooEnvSrc(object):
 
     def reset(self):
         # we want contiguous data
-        self.idx = np.random.randint(low=1, high=len(self.data.index)-self.days)
+        high = len(self.data.index)-self.days
+        if high <= 1:
+            raise Exception('data too short')
+        self.idx = np.random.randint(low=1, high=high)
         self.step = 0
 
     def _step(self):
